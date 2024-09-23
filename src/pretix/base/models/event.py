@@ -742,8 +742,8 @@ class Event(EventMixin, LoggedModel):
         Returns the names of the plugins activated for this event as a list.
         """
         if self.plugins is None:
-            return []
-        return self.plugins.split(",")
+            return self.organizer.get_plugins()
+        return self.plugins.split(",") + self.organizer.get_plugins()
 
     def get_cache(self):
         """

@@ -91,6 +91,10 @@ class Organizer(LoggedModel):
         verbose_name=_("Short form"),
         unique=True
     )
+    plugins = models.TextField(
+        null=True, blank=True,
+        verbose_name=_("Plugins"),
+    )
 
     class Meta:
         verbose_name = _("Organizer")
@@ -118,6 +122,14 @@ class Organizer(LoggedModel):
         This way, we can use this to introduce new default settings to pretix that do not affect existing organizers.
         """
         self.settings.cookie_consent = True
+
+    def get_plugins(self):
+        """
+        Returns the names of the plugins activated for this organizer as a list.
+        """
+        if self.plugins is None:
+            return []
+        return self.plugins.split(",")
 
     def get_cache(self):
         """

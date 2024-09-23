@@ -34,7 +34,7 @@
 
 from django.dispatch import Signal
 
-from pretix.base.signals import DeprecatedSignal, EventPluginSignal
+from pretix.base.signals import DeprecatedSignal, EventPluginSignal, OrganizerPluginSignal
 
 html_page_start = Signal()
 """
@@ -221,7 +221,7 @@ Deprecated signal, no longer works. We just keep the definition so old plugins d
 break the installation.
 """
 
-nav_organizer = Signal()
+nav_organizer = OrganizerPluginSignal()
 """
 Arguments: 'organizer', 'request'
 

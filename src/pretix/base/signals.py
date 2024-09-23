@@ -96,22 +96,27 @@ def is_receiver_active(sender, receiver):
     return is_app_active(sender, app)
 
 
-class EventPluginSignal(django.dispatch.Signal):
+def is_plugin_host(sender):
+    return hasattr(sender, 'get_plugins')
+
+
+class PluginSignal(django.dispatch.Signal):
     """
     This is an extension to Django's built-in signals which differs in a way that it sends
     out it's events only to receivers which belong to plugins that are enabled for the given
     Event.
     """
 
-    def send(self, sender: Event, **named) -> List[Tuple[Callable, Any]]:
+    def send(self, sender, **named) -> List[Tuple[Callable, Any]]:
         """
         Send signal from sender to all connected receivers that belong to
         plugins enabled for the given Event.
 
-        sender is required to be an instance of ``pretix.base.models.Event``.
+        sender is required to be a plugin host (an object with a `get_plugins` method),
+        for example a ``pretix.base.models.Event``.
         """
-        if sender and not isinstance(sender, Event):
-            raise ValueError("Sender needs to be an event.")
+        if sender and not is_plugin_host(sender):
+            raise ValueError("Sender needs to be a plugin host.")
 
         responses = []
         if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
@@ -126,16 +131,17 @@ class EventPluginSignal(django.dispatch.Signal):
                 responses.append((receiver, response))
         return responses
 
-    def send_chained(self, sender: Event, chain_kwarg_name, **named) -> List[Tuple[Callable, Any]]:
+    def send_chained(self, sender, chain_kwarg_name, **named) -> List[Tuple[Callable, Any]]:
         """
         Send signal from sender to all connected receivers. The return value of the first receiver
         will be used as the keyword argument specified by ``chain_kwarg_name`` in the input to the
         second receiver and so on. The return value of the last receiver is returned by this method.
 
-        sender is required to be an instance of ``pretix.base.models.Event``.
+        sender is required to be a plugin host (an object with a `get_plugins` method),
+        for example a ``pretix.base.models.Event``.
         """
-        if sender and not isinstance(sender, Event):
-            raise ValueError("Sender needs to be an event.")
+        if sender and not is_plugin_host(sender):
+            raise ValueError("Sender needs to be a plugin host.")
 
         response = named.get(chain_kwarg_name)
         if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
@@ -150,16 +156,17 @@ class EventPluginSignal(django.dispatch.Signal):
                 response = receiver(signal=self, sender=sender, **named)
         return response
 
-    def send_robust(self, sender: Event, **named) -> List[Tuple[Callable, Any]]:
+    def send_robust(self, sender, **named) -> List[Tuple[Callable, Any]]:
         """
         Send signal from sender to all connected receivers. If a receiver raises an exception
         instead of returning a value, the exception is included as the result instead of
         stopping the response chain at the offending receiver.
 
-        sender is required to be an instance of ``pretix.base.models.Event``.
+        sender is required to be a plugin host (an object with a `get_plugins` method),
+        for example a ``pretix.base.models.Event``.
         """
-        if sender and not isinstance(sender, Event):
-            raise ValueError("Sender needs to be an event.")
+        if sender and not is_plugin_host(sender):
+            raise ValueError("Sender needs to be a plugin host.")
 
         responses = []
         if (
@@ -192,6 +199,14 @@ class EventPluginSignal(django.dispatch.Signal):
             )
         )
         return sorted_list
+
+
+class OrganizerPluginSignal(PluginSignal):
+    pass
+
+
+class EventPluginSignal(PluginSignal):
+    pass
 
 
 class GlobalSignal(django.dispatch.Signal):
@@ -245,7 +260,7 @@ class Registry:
         return self.by_key.get(key).get(value, (None, None))
 
 
-class EventPluginRegistry(Registry):
+class PluginRegistry(Registry):
     def __init__(self, keys):
         super().__init__({"plugin": lambda o: get_defining_app(o), **keys})
 
